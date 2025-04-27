@@ -1,36 +1,79 @@
-import { Card, Badge } from 'flowbite-react';
+import { Card, Badge, Toast } from 'flowbite-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { HeartIcon, InformationCircleIcon, GlobeAltIcon } from '@heroicons/react/24/outline';
 import { HeartIcon as HeartSolidIcon } from '@heroicons/react/24/solid';
 import { useState, useEffect } from 'react';
+import { useDispatch, useSelector } from "react-redux";
+import { addFavorite, removeFavorite } from "../redux/favourites/favouriteSlice";
+import { toast, ToastContainer } from "react-toastify";
 
 export default function CountryCard({ country }) {
-  const [isFavorite, setIsFavorite] = useState(false);
   const [showTooltip, setShowTooltip] = useState(false);
   const [imageError, setImageError] = useState(false);
   const navigate = useNavigate();
-
-  // Load favorite state from localStorage on component mount
-  useEffect(() => {
-    const favCountries = JSON.parse(localStorage.getItem('favoriteCountries')) || [];
-    setIsFavorite(favCountries.includes(country.cca3));
-  }, [country.cca3]);
+  const dispatch = useDispatch();
+  
+  // Get current user and favorites from Redux
+  const { currentUser } = useSelector((state) => state.user || {});
+  const { favorites } = useSelector((state) => state.favorites || { favorites: [] });
+  
+  // Check if country is in favorites
+  const isFavorite = favorites.some(
+    (fav) =>
+      fav.alpha3Code === country.cca3 ||
+      fav.cca3 === country.cca3 ||
+      fav.code === country.cca3
+  );
 
   const toggleFavorite = (e) => {
     e.preventDefault();
     e.stopPropagation();
     
-    const favCountries = JSON.parse(localStorage.getItem('favoriteCountries')) || [];
-    let updatedFavorites;
-    
-    if (isFavorite) {
-      updatedFavorites = favCountries.filter(code => code !== country.cca3);
-    } else {
-      updatedFavorites = [...favCountries, country.cca3];
+    // Check if user is logged in
+    if (!currentUser) {
+      toast.info("Please sign in to save favorites");
+      navigate("/sign-in");
+      return;
     }
-    
-    localStorage.setItem('favoriteCountries', JSON.stringify(updatedFavorites));
-    setIsFavorite(!isFavorite);
+
+    // Get consistent name and code values
+    const countryName = country.name.common;
+    const countryCode = country.cca3;
+
+    if (isFavorite) {
+      // Find the favorite item to get its exact stored ID
+      const favoriteItem = favorites.find(
+        (fav) =>
+          fav.alpha3Code === country.cca3 ||
+          fav.cca3 === country.cca3 ||
+          fav.code === country.cca3
+      );
+
+      // Use the exact same identifier that was stored
+      const idToRemove = favoriteItem
+        ? favoriteItem.cca3 || favoriteItem.alpha3Code || favoriteItem.code
+        : countryCode;
+
+      dispatch(removeFavorite(idToRemove));
+      toast.success(`${countryName} removed from favorites`);
+    } else {
+      dispatch(
+        addFavorite({
+          alpha3Code: countryCode,
+          cca3: countryCode,
+          code: countryCode,
+          name: countryName,
+          flag: country.flags?.svg || country.flags?.png,
+          population: country.population,
+          region: country.region,
+          capital: Array.isArray(country.capital)
+            ? country.capital[0]
+            : country.capital,
+          addedAt: new Date().toISOString(),
+        })
+      );
+      toast.success(`${countryName} added to favorites`);
+    }
   };
 
   const handleImageError = () => {
