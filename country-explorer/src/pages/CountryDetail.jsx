@@ -100,27 +100,49 @@ export default function CountryDetail() {
   if (error) {
     return <CountryError error={error} navigate={navigate} />;
   }
+  
   const handleToggleFavorite = () => {
     if (!currentUser) {
       toast.info("Please sign in to save favorites");
       navigate("/sign-in");
       return;
     }
-    const countryName = country.name.common || country.name;
-    const countryCode = country.cca3 || country.alpha3Code;
+
+    // Get consistent name and code values
+    const countryName =
+      typeof country.name === "object" ? country.name.common : country.name;
+    const countryCode = country.cca3 || country.alpha3Code || country.code;
+
     if (isFavorite) {
-      dispatch(removeFavorite(country.alpha3Code));
+      // Find the favorite item to get its exact stored ID
+      const favoriteItem = favorites.find(
+        (fav) =>
+          fav.alpha3Code === country.alpha3Code ||
+          fav.alpha3Code === country.cca3 ||
+          fav.cca3 === country.cca3 ||
+          fav.cca3 === country.alpha3Code
+      );
+
+      // Use the exact same identifier that was stored
+      const idToRemove = favoriteItem
+        ? favoriteItem.cca3 || favoriteItem.alpha3Code || favoriteItem.code
+        : countryCode;
+
+      dispatch(removeFavorite(idToRemove));
       toast.success(`${countryName} removed from favorites`);
     } else {
       dispatch(
         addFavorite({
           alpha3Code: countryCode,
           cca3: countryCode,
+          code: countryCode,
           name: countryName,
           flag: country.flags?.svg || country.flags?.png,
           population: country.population,
           region: country.region,
-          capital: country.capital,
+          capital: Array.isArray(country.capital)
+            ? country.capital[0]
+            : country.capital,
           addedAt: new Date().toISOString(),
         })
       );
