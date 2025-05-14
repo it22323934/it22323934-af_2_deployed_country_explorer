@@ -23,7 +23,7 @@ const JWT_SECRET = "zeroWaste890"; // TODO: Move to environment variables
 /**
  * User Registration Controller
  * Handles new user registration with username, email, and password
- * 
+ *
  * @async
  * @param {Object} req - Express request object
  * @param {Object} req.body - Request body containing user registration data
@@ -45,6 +45,21 @@ export const signup = async (req, res, next) => {
       return next(errorHandler(400, "All fields are required"));
     }
 
+    const existingUserName = await User.findOne({ username: username.trim() });
+
+    const existingUserEmail = await User.findOne({
+      email: email.toLowerCase().trim(),
+    });
+
+    // Check if username or email already exists
+    if (existingUserName) {
+      return next(errorHandler(400, "Username already exists"));
+    }
+
+    if (existingUserEmail) {
+      return next(errorHandler(400, "Email is  already registered"));
+    }
+
     // Hash password before storing
     const hashPassword = bcryptjs.hashSync(password, SALT_ROUNDS);
 
@@ -52,7 +67,7 @@ export const signup = async (req, res, next) => {
     const newUser = new User({
       username: username.trim(),
       email: email.toLowerCase().trim(),
-      password: hashPassword
+      password: hashPassword,
     });
 
     // Save user to database
@@ -69,7 +84,7 @@ export const signup = async (req, res, next) => {
 /**
  * User Sign-in Controller
  * Authenticates user credentials and issues JWT token
- * 
+ *
  * @async
  * @param {Object} req - Express request object
  * @param {Object} req.body - Request body containing login credentials
@@ -125,7 +140,7 @@ export const signin = async (req, res, next) => {
  * Google OAuth Authentication Controller
  * Handles user authentication through Google OAuth
  * Creates new user account if email doesn't exist
- * 
+ *
  * @async
  * @param {Object} req - Express request object
  * @param {Object} req.body - Request body containing Google OAuth data
@@ -163,10 +178,10 @@ export const googleAuth = async (req, res, next) => {
  * @param {Object} res - Express response object
  */
 export const test = (req, res) => {
-  res.json({ 
+  res.json({
     status: "healthy",
     message: "API is working",
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   });
 };
 
@@ -179,8 +194,9 @@ export const test = (req, res) => {
  * @returns {string} Generated password
  */
 const generateRandomPassword = () => {
-  return Math.random().toString(36).slice(-8) + 
-         Math.random().toString(36).slice(-8);
+  return (
+    Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8)
+  );
 };
 
 /**
@@ -190,13 +206,13 @@ const generateRandomPassword = () => {
  */
 const generateAuthToken = (user) => {
   return jwt.sign(
-    { 
-      id: user._id, 
-      isAdmin: user.isAdmin 
+    {
+      id: user._id,
+      isAdmin: user.isAdmin,
     },
     process.env.JWT_SECRET || JWT_SECRET,
-    { 
-      expiresIn: '24h' // Token expires in 24 hours
+    {
+      expiresIn: "24h", // Token expires in 24 hours
     }
   );
 };
@@ -212,7 +228,7 @@ const generateAuthToken = (user) => {
 const createGoogleUser = async (email, name, photoURL) => {
   const password = generateRandomPassword();
   const hashPassword = bcryptjs.hashSync(password, SALT_ROUNDS);
-  
+
   const newUser = new User({
     username: generateUsername(name),
     email: email.toLowerCase().trim(),
@@ -229,10 +245,10 @@ const createGoogleUser = async (email, name, photoURL) => {
  * @returns {string} Generated username
  */
 const generateUsername = (name) => {
-  return name.toLowerCase()
-    .split(" ")
-    .join("") + 
-    Math.random().toString(36).slice(-4);
+  return (
+    name.toLowerCase().split(" ").join("") +
+    Math.random().toString(36).slice(-4)
+  );
 };
 
 /**
@@ -243,7 +259,7 @@ const generateUsername = (name) => {
 const handleExistingUserLogin = (user, res) => {
   const token = generateAuthToken(user);
   const { password, ...userWithoutPassword } = user._doc;
-  
+
   res
     .status(200)
     .cookie("token", token, {
