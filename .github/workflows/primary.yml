@@ -1,0 +1,69 @@
+name: Primary Verification Workflow
+
+on:
+  push:
+    branches: 
+      - main
+      - master
+      - develop
+  workflow_dispatch:  # Added manual trigger
+
+jobs:
+  cypress-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+          
+      - name: Install dependencies
+        run: |
+          npm ci 
+          cd client
+          npm ci
+          
+      - name: Create environment files
+        run: |
+          # Create API .env file
+          echo "MONGO_URL=${{ secrets.MONGO_URL }}" > api/.env
+          echo "JWT_SECRET=${{ secrets.JWT_SECRET }}" >> api/.env
+          
+          # Create client .env file
+          echo "VITE_FIREBASE_API_KEY=${{ secrets.VITE_FIREBASE_API_KEY }}" > client/.env
+          
+      - name: Cypress run
+        uses: cypress-io/github-action@v5
+        with:
+          working-directory: client
+          start: npm run dev
+          wait-on: 'http://localhost:5173'
+          spec: |
+            cypress/e2e/auth_flow.cy.js
+            cypress/e2e/main_flow.cy.js
+        env:
+          VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
+          
+  api-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+          
+      - name: Install dependencies
+        run: |
+          cd api
+          npm ci
+          
+      - name: Run API tests
+        run: |
+          cd api
+          npm test -- --testPathPattern=auth.test.js
